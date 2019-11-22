@@ -40,21 +40,19 @@ The following attributes are exported:
 
 * `location` - The Azure Region where the Virtual Hub exists.
 
-* `address_prefix` - Address-prefix for this Virtual Hub.
+* `address_prefix` - The Address Prefix used for this Virtual Hub.
 
-* `virtual_wan_id` - The resource id of virtual wan.
+* `express_route_gateway_id` - The ID of an Express Route Gateway used for Express Route connections.
 
-* `s2s_vpn_gateway_id` - The resource id of s2s vpn gateway.
+* `p2s_vpn_gateway_id` - The ID of a Point-to-Site VPN Gateway used for Point-to-Site connections.
 
-* `p2s_vpn_gateway_id` - The resource id of p2s vpn gateway.
+* `route` - One or more `route` blocks as defined below.
 
-* `express_route_gateway_id` - The resource id of express route gateway.
+* `s2s_vpn_gateway_id` - The ID of a Site-to-Site VPN Gateway used for Site-to-Site connections.
 
-* `route` - One `route` block defined below.
+* `tags` - A mapping of tags to assign to the Virtual Hub.
 
-* `virtual_network_connection` - One or more `virtual_network_connection` block defined below.
-
-* `tags` - Resource tags.
+* `virtual_wan_id` - The ID of a Virtual WAN within which the Virtual Hub exists.
 
 ---
 
@@ -63,17 +61,3 @@ The `route` block contains the following:
 * `address_prefixes` - List of all addressPrefixes.
 
 * `next_hop_ip_address` - NextHop ip address.
-
----
-
-The `virtual_network_connection` block contains the following:
-
-* `name` - The name of the resource that is unique within a resource group. This name can be used to access the resource.
-
-* `remote_virtual_network_id` - The resource id of remote virtual network.
-
-* `allow_hub_to_remote_vnet_transit` - VirtualHub to RemoteVnet transit to enabled or not.
-
-* `allow_remote_vnet_to_use_hub_vnet_gateways` - Allow RemoteVnet to use Virtual Hub's gateways.
-
-* `enable_internet_security` - Enable internet security.

@@ -50,35 +50,6 @@ func dataSourceArmVirtualHub() *schema.Resource {
 				Computed: true,
 			},
 
-			"virtual_network_connection": {
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"remote_virtual_network_id": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"allow_hub_to_remote_vnet_transit": {
-							Type:     schema.TypeBool,
-							Computed: true,
-						},
-						"allow_remote_vnet_to_use_hub_vnet_gateways": {
-							Type:     schema.TypeBool,
-							Computed: true,
-						},
-						"enable_internet_security": {
-							Type:     schema.TypeBool,
-							Computed: true,
-						},
-					},
-				},
-			},
-
 			"route": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -156,10 +127,6 @@ func dataSourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error
 			virtualWanId = props.VirtualWan.ID
 		}
 		d.Set("virtual_wan_id", virtualWanId)
-
-		if err := d.Set("virtual_network_connection", flattenArmVirtualHubVirtualNetworkConnection(props.VirtualNetworkConnections)); err != nil {
-			return fmt.Errorf("Error setting `virtual_network_connection`: %+v", err)
-		}
 	}
 
 	return tags.FlattenAndSet(d, resp.Tags)
