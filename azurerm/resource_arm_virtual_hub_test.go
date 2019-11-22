@@ -11,6 +11,8 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
+// TODO: add more tests here
+
 // The Virtual Hub resource has been merged but isn't available at this time
 var runVirtualHubTests = false
 
