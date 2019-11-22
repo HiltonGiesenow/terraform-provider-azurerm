@@ -33,6 +33,7 @@ type Client struct {
 	VnetPeeringsClient                   *network.VirtualNetworkPeeringsClient
 	VirtualWanClient                     *network.VirtualWansClient
 	VirtualHubClient                     *network.VirtualHubsClient
+	VpnGatewaysClient                    *network.VpnGatewaysClient
 	WatcherClient                        *network.WatchersClient
 	WebApplicationFirewallPoliciesClient *network.WebApplicationFirewallPoliciesClient
 	PrivateLinkServiceClient             *network.PrivateLinkServicesClient
@@ -123,6 +124,9 @@ func BuildClient(o *common.ClientOptions) *Client {
 	VirtualHubClient := network.NewVirtualHubsClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
 	o.ConfigureClient(&VirtualHubClient.Client, o.ResourceManagerAuthorizer)
 
+	vpnGatewaysClient := network.NewVpnGatewaysClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
+	o.ConfigureClient(&vpnGatewaysClient.Client, o.ResourceManagerAuthorizer)
+
 	WatcherClient := network.NewWatchersClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
 	o.ConfigureClient(&WatcherClient.Client, o.ResourceManagerAuthorizer)
 
@@ -157,6 +161,7 @@ func BuildClient(o *common.ClientOptions) *Client {
 		VnetPeeringsClient:                   &VnetPeeringsClient,
 		VirtualWanClient:                     &VirtualWanClient,
 		VirtualHubClient:                     &VirtualHubClient,
+		VpnGatewaysClient:                    &vpnGatewaysClient,
 		WatcherClient:                        &WatcherClient,
 		WebApplicationFirewallPoliciesClient: &WebApplicationFirewallPoliciesClient,
 		PrivateLinkServiceClient:             &PrivateLinkServiceClient,

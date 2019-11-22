@@ -58,8 +58,6 @@ The following arguments are supported:
 
 * `route` - (Optional) One or more `route` blocks as defined below.
 
-* `s2s_vpn_gateway_id` - (Optional) The ID of a Site-to-Site VPN Gateway which should be used for Site-to-Site connections.
-
 * `tags` - (Optional) A mapping of tags to assign to the Virtual Hub.
 
 ---
