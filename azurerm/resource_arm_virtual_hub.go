@@ -73,8 +73,7 @@ func resourceArmVirtualHub() *schema.Resource {
 			},
 
 			"route": {
-				// TODO: confirm this wants to be a TypeSet
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -125,7 +124,7 @@ func resourceArmVirtualHubCreateUpdate(d *schema.ResourceData, meta interface{})
 	location := azure.NormalizeLocation(d.Get("location").(string))
 	addressPrefix := d.Get("address_prefix").(string)
 	virtualWanId := d.Get("virtual_wan_id").(string)
-	route := d.Get("route").([]interface{})
+	route := d.Get("route").(*schema.Set).List()
 	t := d.Get("tags").(map[string]interface{})
 
 	parameters := network.VirtualHub{
