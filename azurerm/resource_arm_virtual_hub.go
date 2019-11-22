@@ -51,21 +51,18 @@ func resourceArmVirtualHub() *schema.Resource {
 			"virtual_wan_id": {
 				Type:         schema.TypeString,
 				Required:     true,
+				ForceNew:     true,
 				ValidateFunc: azure.ValidateResourceID,
 			},
 
-			"s2s_vpn_gateway_id": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: azure.ValidateResourceID,
-			},
-
+			// TODO: remove this
 			"p2s_vpn_gateway_id": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ValidateFunc: azure.ValidateResourceID,
 			},
 
+			// TODO: should this be removed?
 			"express_route_gateway_id": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -139,12 +136,6 @@ func resourceArmVirtualHubCreateUpdate(d *schema.ResourceData, meta interface{})
 		Tags: tags.Expand(t),
 	}
 
-	if v, ok := d.GetOk("s2s_vpn_gateway_id"); ok {
-		s2sVpnGatewayId := v.(string)
-		parameters.VirtualHubProperties.VpnGateway = &network.SubResource{
-			ID: &s2sVpnGatewayId,
-		}
-	}
 	if v, ok := d.GetOk("p2s_vpn_gateway_id"); ok {
 		p2sVpnGatewayId := v.(string)
 		parameters.VirtualHubProperties.P2SVpnGateway = &network.SubResource{
@@ -222,12 +213,6 @@ func resourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error {
 		if err := d.Set("route", flattenArmVirtualHubRoute(props.RouteTable)); err != nil {
 			return fmt.Errorf("Error setting `route`: %+v", err)
 		}
-
-		var vpnGatewayId *string
-		if props.VpnGateway != nil {
-			vpnGatewayId = props.VpnGateway.ID
-		}
-		d.Set("s2s_vpn_gateway_id", vpnGatewayId)
 
 		var virtualWanId *string
 		if props.VirtualWan != nil {

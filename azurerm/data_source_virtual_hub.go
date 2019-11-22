@@ -116,6 +116,7 @@ func dataSourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error
 			return fmt.Errorf("Error setting `route`: %+v", err)
 		}
 
+		// this makes sense in the Data Source but not the Resource due to the way this is used in practice
 		var vpnGatewayId *string
 		if props.VpnGateway != nil {
 			vpnGatewayId = props.VpnGateway.ID
