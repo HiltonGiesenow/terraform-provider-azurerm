@@ -494,8 +494,10 @@ func Provider() terraform.ResourceProvider {
 	}
 
 	// NOTE: these resources have been pulled since they require rework
-	if false {
+	if os.Getenv("TF_VHN") == "1" {
 		resources["azurerm_virtual_hub"] = resourceArmVirtualHub()
+		// TODO: does this want to be azurerm_virtual_hub_virtual_network_connection
+		resources["azurerm_virtual_hub_connection"] = resourceArmVirtualHubConnection()
 	}
 
 	// avoids this showing up in test output
