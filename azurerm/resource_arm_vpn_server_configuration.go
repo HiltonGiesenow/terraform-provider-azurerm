@@ -13,6 +13,7 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/features"
 	networkSvc "github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/network"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/tags"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/timeouts"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
@@ -43,6 +44,51 @@ func resourceArmVPNServerConfiguration() *schema.Resource {
 			},
 
 			"resource_group_name": azure.SchemaResourceGroupName(),
+
+			"location": azure.SchemaLocation(),
+
+			"vpn_authentication_types": {
+				Type:     schema.TypeSet,
+				Required: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+					ValidateFunc: validation.StringInSlice([]string{
+						string(network.AAD),
+						string(network.Certificate),
+						string(network.Radius),
+					}, false),
+				},
+
+				// StatusCode=400 -- Original Error: Code="MultipleVpnAuthenticationTypesNotSupprtedOnVpnServerConfiguration"
+				// Message="VpnServerConfiguration XXX/acctestrg-191125124621329676 supports single VpnAuthenticationType at a time.
+				// Customer has specified 3 number of VpnAuthenticationTypes."
+				MaxItems: 1,
+			},
+
+			// Optional
+			"azure_active_directory_authentication": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MinItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"audience": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+
+						"issuer": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+
+						"tenant": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
 
 			"client_revoked_certificate": {
 				Type:     schema.TypeSet,
@@ -221,10 +267,9 @@ func resourceArmVPNServerConfiguration() *schema.Resource {
 							},
 						},
 
-						// TODO: is this Required?
 						"server_root_certificate": {
 							Type:     schema.TypeSet,
-							Optional: true,
+							Required: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"name": {
@@ -232,7 +277,7 @@ func resourceArmVPNServerConfiguration() *schema.Resource {
 										Required: true,
 									},
 
-									"public_key_data": {
+									"public_cert_data": {
 										Type:     schema.TypeString,
 										Required: true,
 									},
@@ -244,9 +289,9 @@ func resourceArmVPNServerConfiguration() *schema.Resource {
 			},
 
 			"vpn_protocols": {
-				// TODO: is this optional?
 				Type:     schema.TypeSet,
 				Optional: true,
+				Computed: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 					ValidateFunc: validation.StringInSlice([]string{
@@ -255,6 +300,8 @@ func resourceArmVPNServerConfiguration() *schema.Resource {
 					}, false),
 				},
 			},
+
+			"tags": tags.Schema(),
 		},
 	}
 }
@@ -280,48 +327,102 @@ func resourceArmVPNServerConfigurationCreateUpdate(d *schema.ResourceData, meta 
 		}
 	}
 
+	aadAuthenticationRaw := d.Get("azure_active_directory_authentication").([]interface{})
+	aadAuthentication := expandVpnServerConfigurationAADAuthentication(aadAuthenticationRaw)
+
 	clientRevokedCertsRaw := d.Get("client_revoked_certificate").(*schema.Set).List()
-	clientRevokedCerts := expandPointToSiteVpnServerConfigurationClientRevokedCertificates(clientRevokedCertsRaw)
+	clientRevokedCerts := expandVpnServerConfigurationClientRevokedCertificates(clientRevokedCertsRaw)
 
 	clientRootCertsRaw := d.Get("client_root_certificate").(*schema.Set).List()
-	clientRootCerts := expandPointToSiteVpnServerConfigurationClientRootCertificates(clientRootCertsRaw)
+	clientRootCerts := expandVpnServerConfigurationClientRootCertificates(clientRootCertsRaw)
 
 	ipSecPoliciesRaw := d.Get("ipsec_policy").([]interface{})
-	ipSecPolicies := expandPointToSiteVpnServerConfigurationIPSecPolicies(ipSecPoliciesRaw)
+	ipSecPolicies := expandVpnServerConfigurationIPSecPolicies(ipSecPoliciesRaw)
+
+	radiusServerRaw := d.Get("radius_server").([]interface{})
+	radiusServer := expandVpnServerConfigurationRadiusServer(radiusServerRaw)
 
 	vpnProtocolsRaw := d.Get("vpn_protocols").(*schema.Set).List()
-	vpnProtocols := expandPointToSiteVpnServerConfigurationVPNProtocols(vpnProtocolsRaw)
+	vpnProtocols := expandVpnServerConfigurationVPNProtocols(vpnProtocolsRaw)
+
+	supportsAAD := false
+	supportsCertificates := false
+	supportsRadius := false
+
+	vpnAuthenticationTypesRaw := d.Get("vpn_authentication_types").(*schema.Set).List()
+	vpnAuthenticationTypes := make([]network.VpnAuthenticationType, 0)
+	for _, v := range vpnAuthenticationTypesRaw {
+		authType := network.VpnAuthenticationType(v.(string))
+
+		switch authType {
+		case network.AAD:
+			supportsAAD = true
+			break
+
+		case network.Certificate:
+			supportsCertificates = true
+			break
+
+		case network.Radius:
+			supportsRadius = true
+			break
+
+		default:
+			return fmt.Errorf("Unsupported `vpn_authentication_type`: %q", authType)
+		}
+
+		vpnAuthenticationTypes = append(vpnAuthenticationTypes, authType)
+	}
 
 	props := network.VpnServerConfigurationProperties{
+		AadAuthenticationParameters:  aadAuthentication,
+		VpnAuthenticationTypes:       &vpnAuthenticationTypes,
 		VpnClientRootCertificates:    clientRootCerts,
 		VpnClientRevokedCertificates: clientRevokedCerts,
 		VpnClientIpsecPolicies:       ipSecPolicies,
 		VpnProtocols:                 vpnProtocols,
 	}
 
-	radiusServerRaw := d.Get("radius_server").([]interface{})
-	radiusServer := expandPointToSiteVpnServerConfigurationRadiusServer(radiusServerRaw)
-	if radiusServer != nil {
+	if supportsAAD && aadAuthentication == nil {
+		return fmt.Errorf("`azure_active_directory_authentication` must be specified when `vpn_authentication_type` is set to `AAD`")
+	}
+
+	// parameter:VpnServerConfigVpnClientRootCertificates is not specified when VpnAuthenticationType as Certificate is selected.
+	if supportsCertificates && len(clientRootCertsRaw) == 0 {
+		return fmt.Errorf("`client_root_certificate` must be specified when `vpn_authentication_type` is set to `Certificate`")
+	}
+
+	if supportsRadius {
+		if radiusServer == nil {
+			return fmt.Errorf("`radius_server` must be specified when `vpn_authentication_type` is set to `Radius`")
+		}
+
 		props.RadiusServerAddress = utils.String(radiusServer.address)
 		props.RadiusServerSecret = utils.String(radiusServer.secret)
 		props.RadiusClientRootCertificates = radiusServer.clientRootCertificates
 		props.RadiusServerRootCertificates = radiusServer.serverRootCertificates
 	}
 
+	location := azure.NormalizeLocation(d.Get("location").(string))
+	t := d.Get("tags").(map[string]interface{})
 	parameters := network.VpnServerConfiguration{
+		Location:                         utils.String(location),
 		VpnServerConfigurationProperties: &props,
+		Tags:                             tags.Expand(t),
 	}
+
 	future, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters)
 	if err != nil {
 		return fmt.Errorf("Error creating VPN Server Configuration %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
+
 	if err := future.WaitForCompletionRef(ctx, client.Client); err != nil {
-		return fmt.Errorf("Error waiting for creation of VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, resourceGroup, err)
+		return fmt.Errorf("Error waiting for creation of VPN Server Configuration %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
 	resp, err := client.Get(ctx, resourceGroup, name)
 	if err != nil {
-		return fmt.Errorf("Error retrieving VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, resourceGroup, err)
+		return fmt.Errorf("Error retrieving VPN Server Configuration %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
 	d.SetId(*resp.ID)
@@ -355,34 +456,53 @@ func resourceArmVPNServerConfigurationRead(d *schema.ResourceData, meta interfac
 	d.Set("name", id.Name)
 	d.Set("resource_group_name", resourceGroup)
 
+	if location := resp.Location; location != nil {
+		d.Set("location", azure.NormalizeLocation(*location))
+	}
+
 	if props := resp.VpnServerConfigurationProperties; props != nil {
-		flattenedClientRootCerts := flattenPointToSiteVpnServerConfigurationClientRootCertificates(props.VpnClientRootCertificates)
+		flattenedAADAuthentication := flattenVpnServerConfigurationAADAuthentication(props.AadAuthenticationParameters)
+		if err := d.Set("azure_active_directory_authentication", flattenedAADAuthentication); err != nil {
+			return fmt.Errorf("Error setting `azure_active_directory_authentication`: %+v", err)
+		}
+
+		flattenedClientRootCerts := flattenVpnServerConfigurationClientRootCertificates(props.VpnClientRootCertificates)
 		if err := d.Set("client_root_certificate", flattenedClientRootCerts); err != nil {
 			return fmt.Errorf("Error setting `client_root_certificate`: %+v", err)
 		}
 
-		flattenedClientRevokedCerts := flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(props.VpnClientRevokedCertificates)
+		flattenedClientRevokedCerts := flattenVpnServerConfigurationClientRevokedCertificates(props.VpnClientRevokedCertificates)
 		if err := d.Set("client_revoked_certificate", flattenedClientRevokedCerts); err != nil {
 			return fmt.Errorf("Error setting `client_revoked_certificate`: %+v", err)
 		}
 
-		flattenedIPSecPolicies := flattenPointToSiteVpnServerConfigurationIPSecPolicies(props.VpnClientIpsecPolicies)
+		flattenedIPSecPolicies := flattenVpnServerConfigurationIPSecPolicies(props.VpnClientIpsecPolicies)
 		if err := d.Set("ipsec_policy", flattenedIPSecPolicies); err != nil {
 			return fmt.Errorf("Error setting `ipsec_policy`: %+v", err)
 		}
 
-		flattenedRadiusServer := flattenPointToSiteVpnServerConfigurationRadiusServer(props)
+		flattenedRadiusServer := flattenVpnServerConfigurationRadiusServer(props)
 		if err := d.Set("radius_server", flattenedRadiusServer); err != nil {
 			return fmt.Errorf("Error setting `radius_server`: %+v", err)
 		}
 
-		flattenedVpnProtocols := flattenPointToSiteVpnServerConfigurationVPNProtocols(props.VpnProtocols)
+		vpnAuthenticationTypes := make([]interface{}, 0)
+		if props.VpnAuthenticationTypes != nil {
+			for _, v := range *props.VpnAuthenticationTypes {
+				vpnAuthenticationTypes = append(vpnAuthenticationTypes, string(v))
+			}
+		}
+		if err := d.Set("vpn_authentication_types", schema.NewSet(schema.HashString, vpnAuthenticationTypes)); err != nil {
+			return fmt.Errorf("Error setting `vpn_authentication_types`: %+v", err)
+		}
+
+		flattenedVpnProtocols := flattenVpnServerConfigurationVPNProtocols(props.VpnProtocols)
 		if err := d.Set("vpn_protocols", schema.NewSet(schema.HashString, flattenedVpnProtocols)); err != nil {
 			return fmt.Errorf("Error setting `vpn_protocols`: %+v", err)
 		}
 	}
 
-	return nil
+	return tags.FlattenAndSet(d, resp.Tags)
 }
 
 func resourceArmVPNServerConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
@@ -409,7 +529,49 @@ func resourceArmVPNServerConfigurationDelete(d *schema.ResourceData, meta interf
 	return nil
 }
 
-func expandPointToSiteVpnServerConfigurationClientRootCertificates(input []interface{}) *[]network.VpnServerConfigVpnClientRootCertificate {
+func expandVpnServerConfigurationAADAuthentication(input []interface{}) *network.AadAuthenticationParameters {
+	if len(input) == 0 {
+		return nil
+	}
+
+	v := input[0].(map[string]interface{})
+	return &network.AadAuthenticationParameters{
+		AadAudience: utils.String(v["audience"].(string)),
+		AadIssuer:   utils.String(v["issuer"].(string)),
+		AadTenant:   utils.String(v["tenant"].(string)),
+	}
+}
+
+func flattenVpnServerConfigurationAADAuthentication(input *network.AadAuthenticationParameters) []interface{} {
+	if input == nil {
+		return []interface{}{}
+	}
+
+	audience := ""
+	if input.AadAudience != nil {
+		audience = *input.AadAudience
+	}
+
+	issuer := ""
+	if input.AadIssuer != nil {
+		issuer = *input.AadIssuer
+	}
+
+	tenant := ""
+	if input.AadTenant != nil {
+		tenant = *input.AadTenant
+	}
+
+	return []interface{}{
+		map[string]interface{}{
+			"audience": audience,
+			"issuer":   issuer,
+			"tenant":   tenant,
+		},
+	}
+}
+
+func expandVpnServerConfigurationClientRootCertificates(input []interface{}) *[]network.VpnServerConfigVpnClientRootCertificate {
 	clientRootCertificates := make([]network.VpnServerConfigVpnClientRootCertificate, 0)
 
 	for _, v := range input {
@@ -423,7 +585,7 @@ func expandPointToSiteVpnServerConfigurationClientRootCertificates(input []inter
 	return &clientRootCertificates
 }
 
-func flattenPointToSiteVpnServerConfigurationClientRootCertificates(input *[]network.VpnServerConfigVpnClientRootCertificate) []interface{} {
+func flattenVpnServerConfigurationClientRootCertificates(input *[]network.VpnServerConfigVpnClientRootCertificate) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}
@@ -450,7 +612,7 @@ func flattenPointToSiteVpnServerConfigurationClientRootCertificates(input *[]net
 	return output
 }
 
-func expandPointToSiteVpnServerConfigurationClientRevokedCertificates(input []interface{}) *[]network.VpnServerConfigVpnClientRevokedCertificate {
+func expandVpnServerConfigurationClientRevokedCertificates(input []interface{}) *[]network.VpnServerConfigVpnClientRevokedCertificate {
 	clientRevokedCertificates := make([]network.VpnServerConfigVpnClientRevokedCertificate, 0)
 
 	for _, v := range input {
@@ -464,7 +626,7 @@ func expandPointToSiteVpnServerConfigurationClientRevokedCertificates(input []in
 	return &clientRevokedCertificates
 }
 
-func flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(input *[]network.VpnServerConfigVpnClientRevokedCertificate) []interface{} {
+func flattenVpnServerConfigurationClientRevokedCertificates(input *[]network.VpnServerConfigVpnClientRevokedCertificate) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}
@@ -489,7 +651,7 @@ func flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(input *[]
 	return output
 }
 
-func expandPointToSiteVpnServerConfigurationIPSecPolicies(input []interface{}) *[]network.IpsecPolicy {
+func expandVpnServerConfigurationIPSecPolicies(input []interface{}) *[]network.IpsecPolicy {
 	ipSecPolicies := make([]network.IpsecPolicy, 0)
 
 	for _, raw := range input {
@@ -509,7 +671,7 @@ func expandPointToSiteVpnServerConfigurationIPSecPolicies(input []interface{}) *
 	return &ipSecPolicies
 }
 
-func flattenPointToSiteVpnServerConfigurationIPSecPolicies(input *[]network.IpsecPolicy) []interface{} {
+func flattenVpnServerConfigurationIPSecPolicies(input *[]network.IpsecPolicy) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}
@@ -547,7 +709,7 @@ type vpnServerConfigurationRadiusServer struct {
 	serverRootCertificates *[]network.VpnServerConfigRadiusServerRootCertificate
 }
 
-func expandPointToSiteVpnServerConfigurationRadiusServer(input []interface{}) *vpnServerConfigurationRadiusServer {
+func expandVpnServerConfigurationRadiusServer(input []interface{}) *vpnServerConfigurationRadiusServer {
 	if len(input) == 0 {
 		return nil
 	}
@@ -582,8 +744,8 @@ func expandPointToSiteVpnServerConfigurationRadiusServer(input []interface{}) *v
 	}
 }
 
-func flattenPointToSiteVpnServerConfigurationRadiusServer(input *network.VpnServerConfigurationProperties) []interface{} {
-	if input == nil {
+func flattenVpnServerConfigurationRadiusServer(input *network.VpnServerConfigurationProperties) []interface{} {
+	if input == nil || input.RadiusServerAddress == nil || input.RadiusServerRootCertificates == nil || len(*input.RadiusServerRootCertificates) == 0 {
 		return []interface{}{}
 	}
 
@@ -648,7 +810,7 @@ func flattenPointToSiteVpnServerConfigurationRadiusServer(input *network.VpnServ
 	}
 }
 
-func expandPointToSiteVpnServerConfigurationVPNProtocols(input []interface{}) *[]network.VpnGatewayTunnelingProtocol {
+func expandVpnServerConfigurationVPNProtocols(input []interface{}) *[]network.VpnGatewayTunnelingProtocol {
 	vpnProtocols := make([]network.VpnGatewayTunnelingProtocol, 0)
 
 	for _, v := range input {
@@ -658,7 +820,7 @@ func expandPointToSiteVpnServerConfigurationVPNProtocols(input []interface{}) *[
 	return &vpnProtocols
 }
 
-func flattenPointToSiteVpnServerConfigurationVPNProtocols(input *[]network.VpnGatewayTunnelingProtocol) []interface{} {
+func flattenVpnServerConfigurationVPNProtocols(input *[]network.VpnGatewayTunnelingProtocol) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}

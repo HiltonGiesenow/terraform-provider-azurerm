@@ -11,8 +11,6 @@ description: |-
 
 Manages a VPN Gateway within a Virtual Hub, which enables Site-to-Site communication.
 
-^ TODO: confirm that
-
 ## Example Usage
 
 ```hcl
