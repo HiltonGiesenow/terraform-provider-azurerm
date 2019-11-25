@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-09-01/network"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/tf"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/features"
@@ -16,12 +17,12 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
-func resourceArmPointToSiteVPNServerConfiguration() *schema.Resource {
+func resourceArmVPNServerConfiguration() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmPointToSiteVPNServerConfigurationCreateUpdate,
-		Read:   resourceArmPointToSiteVPNServerConfigurationRead,
-		Update: resourceArmPointToSiteVPNServerConfigurationCreateUpdate,
-		Delete: resourceArmPointToSiteVPNServerConfigurationDelete,
+		Create: resourceArmVPNServerConfigurationCreateUpdate,
+		Read:   resourceArmVPNServerConfigurationRead,
+		Update: resourceArmVPNServerConfigurationCreateUpdate,
+		Delete: resourceArmVPNServerConfigurationDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -41,12 +42,7 @@ func resourceArmPointToSiteVPNServerConfiguration() *schema.Resource {
 				ValidateFunc: validate.NoEmptyStrings,
 			},
 
-			"virtual_wan_id": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-				// TODO: validation
-			},
+			"resource_group_name": azure.SchemaResourceGroupName(),
 
 			"client_revoked_certificate": {
 				Type:     schema.TypeSet,
@@ -263,30 +259,24 @@ func resourceArmPointToSiteVPNServerConfiguration() *schema.Resource {
 	}
 }
 
-func resourceArmPointToSiteVPNServerConfigurationCreateUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).Network.PointToSiteVpnServerConfigurationsClient
+func resourceArmVPNServerConfigurationCreateUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*ArmClient).Network.VpnServerConfigurationsClient
 	ctx, cancel := timeouts.ForCreateUpdate(meta.(*ArmClient).StopContext, d)
 	defer cancel()
 
 	name := d.Get("name").(string)
-	parsedVirtualWanId, err := networkSvc.ParseVirtualWanID(d.Get("virtual_wan_id").(string))
-	if err != nil {
-		return err
-	}
-
-	resourceGroup := parsedVirtualWanId.Base.ResourceGroup
-	virtualWanName := parsedVirtualWanId.Name
+	resourceGroup := d.Get("resource_group_name").(string)
 
 	if features.ShouldResourcesBeImported() && d.IsNewResource() {
-		existing, err := client.Get(ctx, resourceGroup, virtualWanName, name)
+		existing, err := client.Get(ctx, resourceGroup, name)
 		if err != nil {
 			if !utils.ResponseWasNotFound(existing.Response) {
-				return fmt.Errorf("Error checking for presence of existing Point to Site VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, virtualWanName, resourceGroup, err)
+				return fmt.Errorf("Error checking for presence of existing VPN Server Configuration %q (Resource Group %q): %+v", name, resourceGroup, err)
 			}
 		}
 
 		if existing.ID != nil && *existing.ID != "" {
-			return tf.ImportAsExistsError("azurerm_point_to_site_vpn_server_configuration", *existing.ID)
+			return tf.ImportAsExistsError("azurerm_vpn_server_configuration", *existing.ID)
 		}
 	}
 
@@ -302,11 +292,11 @@ func resourceArmPointToSiteVPNServerConfigurationCreateUpdate(d *schema.Resource
 	vpnProtocolsRaw := d.Get("vpn_protocols").(*schema.Set).List()
 	vpnProtocols := expandPointToSiteVpnServerConfigurationVPNProtocols(vpnProtocolsRaw)
 
-	props := network.P2SVpnServerConfigurationProperties{
-		P2SVpnServerConfigVpnClientRootCertificates:    clientRootCerts,
-		P2SVpnServerConfigVpnClientRevokedCertificates: clientRevokedCerts,
-		VpnClientIpsecPolicies:                         ipSecPolicies,
-		VpnProtocols:                                   vpnProtocols,
+	props := network.VpnServerConfigurationProperties{
+		VpnClientRootCertificates:    clientRootCerts,
+		VpnClientRevokedCertificates: clientRevokedCerts,
+		VpnClientIpsecPolicies:       ipSecPolicies,
+		VpnProtocols:                 vpnProtocols,
 	}
 
 	radiusServerRaw := d.Get("radius_server").([]interface{})
@@ -314,76 +304,64 @@ func resourceArmPointToSiteVPNServerConfigurationCreateUpdate(d *schema.Resource
 	if radiusServer != nil {
 		props.RadiusServerAddress = utils.String(radiusServer.address)
 		props.RadiusServerSecret = utils.String(radiusServer.secret)
-		props.P2SVpnServerConfigRadiusClientRootCertificates = radiusServer.clientRootCertificates
-		props.P2SVpnServerConfigRadiusServerRootCertificates = radiusServer.serverRootCertificates
+		props.RadiusClientRootCertificates = radiusServer.clientRootCertificates
+		props.RadiusServerRootCertificates = radiusServer.serverRootCertificates
 	}
 
-	parameters := network.P2SVpnServerConfiguration{
-		P2SVpnServerConfigurationProperties: &props,
+	parameters := network.VpnServerConfiguration{
+		VpnServerConfigurationProperties: &props,
 	}
-	future, err := client.CreateOrUpdate(ctx, resourceGroup, virtualWanName, name, parameters)
+	future, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters)
 	if err != nil {
-		return fmt.Errorf("Error creating Point to Site VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, virtualWanName, resourceGroup, err)
+		return fmt.Errorf("Error creating VPN Server Configuration %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 	if err := future.WaitForCompletionRef(ctx, client.Client); err != nil {
-		return fmt.Errorf("Error waiting for creation of Point to Site VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, virtualWanName, resourceGroup, err)
+		return fmt.Errorf("Error waiting for creation of VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
-	resp, err := client.Get(ctx, resourceGroup, virtualWanName, name)
+	resp, err := client.Get(ctx, resourceGroup, name)
 	if err != nil {
-		return fmt.Errorf("Error retrieving Point to Site VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, virtualWanName, resourceGroup, err)
+		return fmt.Errorf("Error retrieving VPN Server Configuration %q (Virtual WAN %q / Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
 	d.SetId(*resp.ID)
 
-	return resourceArmPointToSiteVPNServerConfigurationRead(d, meta)
+	return resourceArmVPNServerConfigurationRead(d, meta)
 }
 
-func resourceArmPointToSiteVPNServerConfigurationRead(d *schema.ResourceData, meta interface{}) error {
-	virtualWansClient := meta.(*ArmClient).Network.VirtualWanClient
-	client := meta.(*ArmClient).Network.PointToSiteVpnServerConfigurationsClient
+func resourceArmVPNServerConfigurationRead(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*ArmClient).Network.VpnServerConfigurationsClient
 	ctx, cancel := timeouts.ForRead(meta.(*ArmClient).StopContext, d)
 	defer cancel()
 
-	id, err := networkSvc.ParsePointToPointVpnServerConfigurationID(d.Id())
+	id, err := networkSvc.ParseVpnServerConfigurationID(d.Id())
 	if err != nil {
 		return err
 	}
 
 	resourceGroup := id.Base.ResourceGroup
 
-	virtualWan, err := virtualWansClient.Get(ctx, resourceGroup, id.VirtualWanName)
-	if err != nil {
-		if utils.ResponseWasNotFound(virtualWan.Response) {
-			log.Printf("[DEBUG] Virtual Wan %q was not found in Resource Group %q - removing from state!", id.VirtualWanName, resourceGroup)
-			d.SetId("")
-			return nil
-		}
-
-		return fmt.Errorf("Error retrieving Virtual Wan %q (Resource Group %q): %+v", id.VirtualWanName, resourceGroup, err)
-	}
-
-	resp, err := client.Get(ctx, resourceGroup, id.VirtualWanName, id.Name)
+	resp, err := client.Get(ctx, resourceGroup, id.Name)
 	if err != nil {
 		if utils.ResponseWasNotFound(resp.Response) {
-			log.Printf("[DEBUG] Point-To-Site VPN Server Configuration %q was not found in Virtual Wan %q / Resource Group %q - removing from state!", id.Name, id.VirtualWanName, resourceGroup)
+			log.Printf("[DEBUG] VPN Server Configuration %q was not found in Resource Group %q - removing from state!", id.Name, resourceGroup)
 			d.SetId("")
 			return nil
 		}
 
-		return fmt.Errorf("Error retrieving Point-To-Site VPN Server Configuration %q (Virtual Wan %q / Resource Group %q): %+v", id.Name, id.VirtualWanName, resourceGroup, err)
+		return fmt.Errorf("Error retrieving Point-To-Site VPN Server Configuration %q (Resource Group %q): %+v", id.Name, resourceGroup, err)
 	}
 
 	d.Set("name", id.Name)
-	d.Set("virtual_wan_id", virtualWan.ID)
+	d.Set("resource_group_name", resourceGroup)
 
-	if props := resp.P2SVpnServerConfigurationProperties; props != nil {
-		flattenedClientRootCerts := flattenPointToSiteVpnServerConfigurationClientRootCertificates(props.P2SVpnServerConfigVpnClientRootCertificates)
+	if props := resp.VpnServerConfigurationProperties; props != nil {
+		flattenedClientRootCerts := flattenPointToSiteVpnServerConfigurationClientRootCertificates(props.VpnClientRootCertificates)
 		if err := d.Set("client_root_certificate", flattenedClientRootCerts); err != nil {
 			return fmt.Errorf("Error setting `client_root_certificate`: %+v", err)
 		}
 
-		flattenedClientRevokedCerts := flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(props.P2SVpnServerConfigVpnClientRevokedCertificates)
+		flattenedClientRevokedCerts := flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(props.VpnClientRevokedCertificates)
 		if err := d.Set("client_revoked_certificate", flattenedClientRevokedCerts); err != nil {
 			return fmt.Errorf("Error setting `client_revoked_certificate`: %+v", err)
 		}
@@ -407,47 +385,45 @@ func resourceArmPointToSiteVPNServerConfigurationRead(d *schema.ResourceData, me
 	return nil
 }
 
-func resourceArmPointToSiteVPNServerConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*ArmClient).Network.PointToSiteVpnServerConfigurationsClient
+func resourceArmVPNServerConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*ArmClient).Network.VpnServerConfigurationsClient
 	ctx, cancel := timeouts.ForDelete(meta.(*ArmClient).StopContext, d)
 	defer cancel()
 
-	id, err := networkSvc.ParsePointToPointVpnServerConfigurationID(d.Id())
+	id, err := networkSvc.ParseVpnServerConfigurationID(d.Id())
 	if err != nil {
 		return err
 	}
 
 	resourceGroup := id.Base.ResourceGroup
 
-	future, err := client.Delete(ctx, resourceGroup, id.VirtualWanName, id.Name)
+	future, err := client.Delete(ctx, resourceGroup, id.Name)
 	if err != nil {
-		return fmt.Errorf("Error deleting Point-To-Site VPN Server Configuration %q (Virtual Wan %q / Resource Group %q): %+v", id.Name, id.VirtualWanName, resourceGroup, err)
+		return fmt.Errorf("Error deleting VPN Server Configuration %q (Resource Group %q): %+v", id.Name, resourceGroup, err)
 	}
 
 	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
-		return fmt.Errorf("Error waiting for deletion of Point-To-Site VPN Server Configuration %q (Virtual Wan %q / Resource Group %q): %+v", id.Name, id.VirtualWanName, resourceGroup, err)
+		return fmt.Errorf("Error waiting for deletion of VPN Server Configuration %q (Resource Group %q): %+v", id.Name, resourceGroup, err)
 	}
 
 	return nil
 }
 
-func expandPointToSiteVpnServerConfigurationClientRootCertificates(input []interface{}) *[]network.P2SVpnServerConfigVpnClientRootCertificate {
-	clientRootCertificates := make([]network.P2SVpnServerConfigVpnClientRootCertificate, 0)
+func expandPointToSiteVpnServerConfigurationClientRootCertificates(input []interface{}) *[]network.VpnServerConfigVpnClientRootCertificate {
+	clientRootCertificates := make([]network.VpnServerConfigVpnClientRootCertificate, 0)
 
 	for _, v := range input {
 		raw := v.(map[string]interface{})
-		clientRootCertificates = append(clientRootCertificates, network.P2SVpnServerConfigVpnClientRootCertificate{
-			Name: utils.String(raw["name"].(string)),
-			P2SVpnServerConfigVpnClientRootCertificatePropertiesFormat: &network.P2SVpnServerConfigVpnClientRootCertificatePropertiesFormat{
-				PublicCertData: utils.String(raw["public_cert_data"].(string)),
-			},
+		clientRootCertificates = append(clientRootCertificates, network.VpnServerConfigVpnClientRootCertificate{
+			Name:           utils.String(raw["name"].(string)),
+			PublicCertData: utils.String(raw["public_cert_data"].(string)),
 		})
 	}
 
 	return &clientRootCertificates
 }
 
-func flattenPointToSiteVpnServerConfigurationClientRootCertificates(input *[]network.P2SVpnServerConfigVpnClientRootCertificate) []interface{} {
+func flattenPointToSiteVpnServerConfigurationClientRootCertificates(input *[]network.VpnServerConfigVpnClientRootCertificate) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}
@@ -461,10 +437,8 @@ func flattenPointToSiteVpnServerConfigurationClientRootCertificates(input *[]net
 		}
 
 		publicCertData := ""
-		if props := v.P2SVpnServerConfigVpnClientRootCertificatePropertiesFormat; props != nil {
-			if props.PublicCertData != nil {
-				publicCertData = *props.PublicCertData
-			}
+		if v.PublicCertData != nil {
+			publicCertData = *v.PublicCertData
 		}
 
 		output = append(output, map[string]interface{}{
@@ -476,23 +450,21 @@ func flattenPointToSiteVpnServerConfigurationClientRootCertificates(input *[]net
 	return output
 }
 
-func expandPointToSiteVpnServerConfigurationClientRevokedCertificates(input []interface{}) *[]network.P2SVpnServerConfigVpnClientRevokedCertificate {
-	clientRevokedCertificates := make([]network.P2SVpnServerConfigVpnClientRevokedCertificate, 0)
+func expandPointToSiteVpnServerConfigurationClientRevokedCertificates(input []interface{}) *[]network.VpnServerConfigVpnClientRevokedCertificate {
+	clientRevokedCertificates := make([]network.VpnServerConfigVpnClientRevokedCertificate, 0)
 
 	for _, v := range input {
 		raw := v.(map[string]interface{})
-		clientRevokedCertificates = append(clientRevokedCertificates, network.P2SVpnServerConfigVpnClientRevokedCertificate{
-			Name: utils.String(raw["name"].(string)),
-			P2SVpnServerConfigVpnClientRevokedCertificatePropertiesFormat: &network.P2SVpnServerConfigVpnClientRevokedCertificatePropertiesFormat{
-				Thumbprint: utils.String(raw["thumbprint"].(string)),
-			},
+		clientRevokedCertificates = append(clientRevokedCertificates, network.VpnServerConfigVpnClientRevokedCertificate{
+			Name:       utils.String(raw["name"].(string)),
+			Thumbprint: utils.String(raw["thumbprint"].(string)),
 		})
 	}
 
 	return &clientRevokedCertificates
 }
 
-func flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(input *[]network.P2SVpnServerConfigVpnClientRevokedCertificate) []interface{} {
+func flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(input *[]network.VpnServerConfigVpnClientRevokedCertificate) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}
@@ -505,10 +477,8 @@ func flattenPointToSiteVpnServerConfigurationClientRevokedCertificates(input *[]
 		}
 
 		thumbprint := ""
-		if props := v.P2SVpnServerConfigVpnClientRevokedCertificatePropertiesFormat; props != nil {
-			if props.Thumbprint != nil {
-				thumbprint = *props.Thumbprint
-			}
+		if v.Thumbprint != nil {
+			thumbprint = *v.Thumbprint
 		}
 
 		output = append(output, map[string]interface{}{
@@ -573,8 +543,8 @@ func flattenPointToSiteVpnServerConfigurationIPSecPolicies(input *[]network.Ipse
 type vpnServerConfigurationRadiusServer struct {
 	address                string
 	secret                 string
-	clientRootCertificates *[]network.P2SVpnServerConfigRadiusClientRootCertificate
-	serverRootCertificates *[]network.P2SVpnServerConfigRadiusServerRootCertificate
+	clientRootCertificates *[]network.VpnServerConfigRadiusClientRootCertificate
+	serverRootCertificates *[]network.VpnServerConfigRadiusServerRootCertificate
 }
 
 func expandPointToSiteVpnServerConfigurationRadiusServer(input []interface{}) *vpnServerConfigurationRadiusServer {
@@ -584,27 +554,23 @@ func expandPointToSiteVpnServerConfigurationRadiusServer(input []interface{}) *v
 
 	val := input[0].(map[string]interface{})
 
-	clientRootCertificates := make([]network.P2SVpnServerConfigRadiusClientRootCertificate, 0)
+	clientRootCertificates := make([]network.VpnServerConfigRadiusClientRootCertificate, 0)
 	clientRootCertsRaw := val["client_root_certificate"].(*schema.Set).List()
 	for _, raw := range clientRootCertsRaw {
 		v := raw.(map[string]interface{})
-		clientRootCertificates = append(clientRootCertificates, network.P2SVpnServerConfigRadiusClientRootCertificate{
-			Name: utils.String(v["name"].(string)),
-			P2SVpnServerConfigRadiusClientRootCertificatePropertiesFormat: &network.P2SVpnServerConfigRadiusClientRootCertificatePropertiesFormat{
-				Thumbprint: utils.String(v["thumbprint"].(string)),
-			},
+		clientRootCertificates = append(clientRootCertificates, network.VpnServerConfigRadiusClientRootCertificate{
+			Name:       utils.String(v["name"].(string)),
+			Thumbprint: utils.String(v["thumbprint"].(string)),
 		})
 	}
 
-	serverRootCertificates := make([]network.P2SVpnServerConfigRadiusServerRootCertificate, 0)
+	serverRootCertificates := make([]network.VpnServerConfigRadiusServerRootCertificate, 0)
 	serverRootCertsRaw := val["server_root_certificate"].(*schema.Set).List()
 	for _, raw := range serverRootCertsRaw {
 		v := raw.(map[string]interface{})
-		serverRootCertificates = append(serverRootCertificates, network.P2SVpnServerConfigRadiusServerRootCertificate{
-			Name: utils.String(v["name"].(string)),
-			P2SVpnServerConfigRadiusServerRootCertificatePropertiesFormat: &network.P2SVpnServerConfigRadiusServerRootCertificatePropertiesFormat{
-				PublicCertData: utils.String(v["public_cert_data"].(string)),
-			},
+		serverRootCertificates = append(serverRootCertificates, network.VpnServerConfigRadiusServerRootCertificate{
+			Name:           utils.String(v["name"].(string)),
+			PublicCertData: utils.String(v["public_cert_data"].(string)),
 		})
 	}
 
@@ -616,24 +582,22 @@ func expandPointToSiteVpnServerConfigurationRadiusServer(input []interface{}) *v
 	}
 }
 
-func flattenPointToSiteVpnServerConfigurationRadiusServer(input *network.P2SVpnServerConfigurationProperties) []interface{} {
+func flattenPointToSiteVpnServerConfigurationRadiusServer(input *network.VpnServerConfigurationProperties) []interface{} {
 	if input == nil {
 		return []interface{}{}
 	}
 
 	clientRootCertificates := make([]interface{}, 0)
-	if input.P2SVpnServerConfigRadiusClientRootCertificates != nil {
-		for _, v := range *input.P2SVpnServerConfigRadiusClientRootCertificates {
+	if input.RadiusClientRootCertificates != nil {
+		for _, v := range *input.RadiusClientRootCertificates {
 			name := ""
 			if v.Name != nil {
 				name = *v.Name
 			}
 
 			thumbprint := ""
-			if props := v.P2SVpnServerConfigRadiusClientRootCertificatePropertiesFormat; props != nil {
-				if props.Thumbprint != nil {
-					thumbprint = *props.Thumbprint
-				}
+			if v.Thumbprint != nil {
+				thumbprint = *v.Thumbprint
 			}
 
 			clientRootCertificates = append(clientRootCertificates, map[string]interface{}{
@@ -655,18 +619,16 @@ func flattenPointToSiteVpnServerConfigurationRadiusServer(input *network.P2SVpnS
 	}
 
 	serverRootCertificates := make([]interface{}, 0)
-	if input.P2SVpnServerConfigRadiusServerRootCertificates != nil {
-		for _, v := range *input.P2SVpnServerConfigRadiusServerRootCertificates {
+	if input.RadiusServerRootCertificates != nil {
+		for _, v := range *input.RadiusServerRootCertificates {
 			name := ""
 			if v.Name != nil {
 				name = *v.Name
 			}
 
 			publicCertData := ""
-			if props := v.P2SVpnServerConfigRadiusServerRootCertificatePropertiesFormat; props != nil {
-				if props.PublicCertData != nil {
-					publicCertData = *props.PublicCertData
-				}
+			if v.PublicCertData != nil {
+				publicCertData = *v.PublicCertData
 			}
 
 			serverRootCertificates = append(serverRootCertificates, map[string]interface{}{

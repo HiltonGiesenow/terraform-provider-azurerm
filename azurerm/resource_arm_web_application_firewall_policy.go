@@ -326,8 +326,8 @@ func expandArmWebApplicationFirewallPolicyPolicySettings(input []interface{}) *n
 	mode := v["mode"].(string)
 
 	result := network.PolicySettings{
-		EnabledState: enabled,
-		Mode:         network.WebApplicationFirewallMode(mode),
+		State: enabled,
+		Mode:  network.WebApplicationFirewallMode(mode),
 	}
 	return &result
 }
@@ -402,7 +402,7 @@ func flattenArmWebApplicationFirewallPolicyPolicySettings(input *network.PolicyS
 
 	result := make(map[string]interface{})
 
-	result["enabled"] = input.EnabledState == network.WebApplicationFirewallEnabledStateDisabled
+	result["enabled"] = input.State == network.WebApplicationFirewallEnabledStateDisabled
 	result["mode"] = string(input.Mode)
 
 	return []interface{}{result}

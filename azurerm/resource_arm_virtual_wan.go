@@ -54,11 +54,6 @@ func resourceArmVirtualWan() *schema.Resource {
 				Default:  false,
 			},
 
-			"security_provider_name": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
 			"allow_branch_to_branch_traffic": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -84,6 +79,13 @@ func resourceArmVirtualWan() *schema.Resource {
 			},
 
 			"tags": tags.Schema(),
+
+			// Remove in 2.0
+			"security_provider_name": {
+				Type:       schema.TypeString,
+				Optional:   true,
+				Deprecated: "This field has been removed by Azure and will be removed in version 2.0 of the Azure Provider",
+			},
 		},
 	}
 }
@@ -99,7 +101,6 @@ func resourceArmVirtualWanCreateUpdate(d *schema.ResourceData, meta interface{})
 	resourceGroup := d.Get("resource_group_name").(string)
 	location := azure.NormalizeLocation(d.Get("location").(string))
 	disableVpnEncryption := d.Get("disable_vpn_encryption").(bool)
-	securityProviderName := d.Get("security_provider_name").(string)
 	allowBranchToBranchTraffic := d.Get("allow_branch_to_branch_traffic").(bool)
 	allowVnetToVnetTraffic := d.Get("allow_vnet_to_vnet_traffic").(bool)
 	office365LocalBreakoutCategory := d.Get("office365_local_breakout_category").(string)
@@ -123,7 +124,6 @@ func resourceArmVirtualWanCreateUpdate(d *schema.ResourceData, meta interface{})
 		Tags:     tags.Expand(t),
 		VirtualWanProperties: &network.VirtualWanProperties{
 			DisableVpnEncryption:           utils.Bool(disableVpnEncryption),
-			SecurityProviderName:           utils.String(securityProviderName),
 			AllowBranchToBranchTraffic:     utils.Bool(allowBranchToBranchTraffic),
 			AllowVnetToVnetTraffic:         utils.Bool(allowVnetToVnetTraffic),
 			Office365LocalBreakoutCategory: network.OfficeTrafficCategory(office365LocalBreakoutCategory),
@@ -185,7 +185,6 @@ func resourceArmVirtualWanRead(d *schema.ResourceData, meta interface{}) error {
 
 	if props := resp.VirtualWanProperties; props != nil {
 		d.Set("disable_vpn_encryption", props.DisableVpnEncryption)
-		d.Set("security_provider_name", props.SecurityProviderName)
 		d.Set("allow_branch_to_branch_traffic", props.AllowBranchToBranchTraffic)
 		d.Set("allow_vnet_to_vnet_traffic", props.AllowVnetToVnetTraffic)
 		d.Set("office365_local_breakout_category", props.Office365LocalBreakoutCategory)

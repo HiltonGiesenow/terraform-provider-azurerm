@@ -81,8 +81,8 @@ func BuildClient(o *common.ClientOptions) *Client {
 	pointToSiteVpnGatewaysClient := network.NewP2sVpnGatewaysClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
 	o.ConfigureClient(&pointToSiteVpnGatewaysClient.Client, o.ResourceManagerAuthorizer)
 
-	pointToSiteVpnServerConfigurationsClient := network.NewP2sVpnServerConfigurationsClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
-	o.ConfigureClient(&pointToSiteVpnServerConfigurationsClient.Client, o.ResourceManagerAuthorizer)
+	vpnServerConfigurationsClient := network.NewVpnServerConfigurationsClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
+	o.ConfigureClient(&vpnServerConfigurationsClient.Client, o.ResourceManagerAuthorizer)
 
 	ProfileClient := network.NewProfilesClientWithBaseURI(o.ResourceManagerEndpoint, o.SubscriptionId)
 	o.ConfigureClient(&ProfileClient.Client, o.ResourceManagerAuthorizer)
@@ -142,38 +142,38 @@ func BuildClient(o *common.ClientOptions) *Client {
 	o.ConfigureClient(&WebApplicationFirewallPoliciesClient.Client, o.ResourceManagerAuthorizer)
 
 	return &Client{
-		ApplicationGatewaysClient:                &ApplicationGatewaysClient,
-		ApplicationSecurityGroupsClient:          &ApplicationSecurityGroupsClient,
-		AzureFirewallsClient:                     &AzureFirewallsClient,
-		BastionHostsClient:                       &BastionHostsClient,
-		ConnectionMonitorsClient:                 &ConnectionMonitorsClient,
-		DDOSProtectionPlansClient:                &DDOSProtectionPlansClient,
-		ExpressRouteAuthsClient:                  &ExpressRouteAuthsClient,
-		ExpressRouteCircuitsClient:               &ExpressRouteCircuitsClient,
-		ExpressRoutePeeringsClient:               &ExpressRoutePeeringsClient,
-		InterfacesClient:                         &InterfacesClient,
-		LoadBalancersClient:                      &LoadBalancersClient,
-		LocalNetworkGatewaysClient:               &LocalNetworkGatewaysClient,
-		PointToSiteVpnGatewaysClient:             &pointToSiteVpnGatewaysClient,
-		PointToSiteVpnServerConfigurationsClient: &pointToSiteVpnServerConfigurationsClient,
-		ProfileClient:                            &ProfileClient,
-		PacketCapturesClient:                     &PacketCapturesClient,
-		PublicIPsClient:                          &PublicIPsClient,
-		PublicIPPrefixesClient:                   &PublicIPPrefixesClient,
-		RoutesClient:                             &RoutesClient,
-		RouteTablesClient:                        &RouteTablesClient,
-		SecurityGroupClient:                      &SecurityGroupClient,
-		SecurityRuleClient:                       &SecurityRuleClient,
-		SubnetsClient:                            &SubnetsClient,
-		VnetGatewayConnectionsClient:             &VnetGatewayConnectionsClient,
-		VnetGatewayClient:                        &VnetGatewayClient,
-		VnetClient:                               &VnetClient,
-		VnetPeeringsClient:                       &VnetPeeringsClient,
-		VirtualWanClient:                         &VirtualWanClient,
-		VirtualHubClient:                         &VirtualHubClient,
-		VpnGatewaysClient:                        &vpnGatewaysClient,
-		WatcherClient:                            &WatcherClient,
-		WebApplicationFirewallPoliciesClient:     &WebApplicationFirewallPoliciesClient,
-		PrivateLinkServiceClient:                 &PrivateLinkServiceClient,
+		ApplicationGatewaysClient:            &ApplicationGatewaysClient,
+		ApplicationSecurityGroupsClient:      &ApplicationSecurityGroupsClient,
+		AzureFirewallsClient:                 &AzureFirewallsClient,
+		BastionHostsClient:                   &BastionHostsClient,
+		ConnectionMonitorsClient:             &ConnectionMonitorsClient,
+		DDOSProtectionPlansClient:            &DDOSProtectionPlansClient,
+		ExpressRouteAuthsClient:              &ExpressRouteAuthsClient,
+		ExpressRouteCircuitsClient:           &ExpressRouteCircuitsClient,
+		ExpressRoutePeeringsClient:           &ExpressRoutePeeringsClient,
+		InterfacesClient:                     &InterfacesClient,
+		LoadBalancersClient:                  &LoadBalancersClient,
+		LocalNetworkGatewaysClient:           &LocalNetworkGatewaysClient,
+		PointToSiteVpnGatewaysClient:         &pointToSiteVpnGatewaysClient,
+		ProfileClient:                        &ProfileClient,
+		PacketCapturesClient:                 &PacketCapturesClient,
+		PublicIPsClient:                      &PublicIPsClient,
+		PublicIPPrefixesClient:               &PublicIPPrefixesClient,
+		RoutesClient:                         &RoutesClient,
+		RouteTablesClient:                    &RouteTablesClient,
+		SecurityGroupClient:                  &SecurityGroupClient,
+		SecurityRuleClient:                   &SecurityRuleClient,
+		SubnetsClient:                        &SubnetsClient,
+		VnetGatewayConnectionsClient:         &VnetGatewayConnectionsClient,
+		VnetGatewayClient:                    &VnetGatewayClient,
+		VnetClient:                           &VnetClient,
+		VnetPeeringsClient:                   &VnetPeeringsClient,
+		VirtualWanClient:                     &VirtualWanClient,
+		VirtualHubClient:                     &VirtualHubClient,
+		VpnGatewaysClient:                    &vpnGatewaysClient,
+		VpnServerConfigurationsClient:        &vpnServerConfigurationsClient,
+		WatcherClient:                        &WatcherClient,
+		WebApplicationFirewallPoliciesClient: &WebApplicationFirewallPoliciesClient,
+		PrivateLinkServiceClient:             &PrivateLinkServiceClient,
 	}
 }
