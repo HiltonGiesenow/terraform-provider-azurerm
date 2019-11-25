@@ -21,12 +21,6 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
-/*
-Remaining:
-	- Tests for the Parsers/Validation
-	- Tests for Virtual Hub Connections
-*/
-
 var virtualHubResourceName = "azurerm_virtual_hub"
 
 func resourceArmVirtualHub() *schema.Resource {

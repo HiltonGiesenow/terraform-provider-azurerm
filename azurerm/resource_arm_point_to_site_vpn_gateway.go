@@ -150,7 +150,7 @@ func resourceArmPointToSiteVPNGatewayRead(d *schema.ResourceData, meta interface
 			return nil
 		}
 
-		return fmt.Errorf("Error retrieving Point-to-Site VPN Gateway %q (Resource Group %q): %+v", id.Name, resourceGroup)
+		return fmt.Errorf("Error retrieving Point-to-Site VPN Gateway %q (Resource Group %q): %+v", id.Name, resourceGroup, err)
 	}
 
 	d.Set("name", id.Name)

@@ -264,7 +264,7 @@ resource "azurerm_virtual_hub" "test" {
 }
 
 resource "azurerm_vpn_server_configuration" "test" {
-  name                     = "acctestvpnsc-%s"
+  name                     = "acctestvpnsc-%d"
   resource_group_name      = azurerm_resource_group.test.name
   location                 = azurerm_resource_group.test.location
   vpn_authentication_types = ["Certificate"]

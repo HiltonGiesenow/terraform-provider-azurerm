@@ -16,7 +16,12 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
-// TODO: tests
+/*
+Remaining:
+	- Tests for Virtual Hub Connections
+	- Docs
+	- Tests for the Parsers/Validation
+*/
 
 func resourceArmVirtualHubConnection() *schema.Resource {
 	return &schema.Resource{
@@ -41,10 +46,10 @@ func resourceArmVirtualHubConnection() *schema.Resource {
 			},
 
 			"virtual_hub_id": {
-				Type:     schema.TypeString,
-				Required: true,
-				// TODO: more specific validation
-				ValidateFunc: azure.ValidateResourceID,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: networkSvc.ValidateVirtualHubID,
 			},
 
 			"remote_virtual_network_id": {
