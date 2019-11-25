@@ -1,44 +1,44 @@
 package network
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-07-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-09-01/network"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/common"
 )
 
 type Client struct {
-	ApplicationGatewaysClient                *network.ApplicationGatewaysClient
-	ApplicationSecurityGroupsClient          *network.ApplicationSecurityGroupsClient
-	AzureFirewallsClient                     *network.AzureFirewallsClient
-	BastionHostsClient                       *network.BastionHostsClient
-	ConnectionMonitorsClient                 *network.ConnectionMonitorsClient
-	DDOSProtectionPlansClient                *network.DdosProtectionPlansClient
-	ExpressRouteAuthsClient                  *network.ExpressRouteCircuitAuthorizationsClient
-	ExpressRouteCircuitsClient               *network.ExpressRouteCircuitsClient
-	ExpressRoutePeeringsClient               *network.ExpressRouteCircuitPeeringsClient
-	InterfacesClient                         *network.InterfacesClient
-	LoadBalancersClient                      *network.LoadBalancersClient
-	LocalNetworkGatewaysClient               *network.LocalNetworkGatewaysClient
-	PointToSiteVpnGatewaysClient             *network.P2sVpnGatewaysClient
-	PointToSiteVpnServerConfigurationsClient *network.P2sVpnServerConfigurationsClient
-	ProfileClient                            *network.ProfilesClient
-	PacketCapturesClient                     *network.PacketCapturesClient
-	PublicIPsClient                          *network.PublicIPAddressesClient
-	PublicIPPrefixesClient                   *network.PublicIPPrefixesClient
-	RoutesClient                             *network.RoutesClient
-	RouteTablesClient                        *network.RouteTablesClient
-	SecurityGroupClient                      *network.SecurityGroupsClient
-	SecurityRuleClient                       *network.SecurityRulesClient
-	SubnetsClient                            *network.SubnetsClient
-	VnetGatewayConnectionsClient             *network.VirtualNetworkGatewayConnectionsClient
-	VnetGatewayClient                        *network.VirtualNetworkGatewaysClient
-	VnetClient                               *network.VirtualNetworksClient
-	VnetPeeringsClient                       *network.VirtualNetworkPeeringsClient
-	VirtualWanClient                         *network.VirtualWansClient
-	VirtualHubClient                         *network.VirtualHubsClient
-	VpnGatewaysClient                        *network.VpnGatewaysClient
-	WatcherClient                            *network.WatchersClient
-	WebApplicationFirewallPoliciesClient     *network.WebApplicationFirewallPoliciesClient
-	PrivateLinkServiceClient                 *network.PrivateLinkServicesClient
+	ApplicationGatewaysClient            *network.ApplicationGatewaysClient
+	ApplicationSecurityGroupsClient      *network.ApplicationSecurityGroupsClient
+	AzureFirewallsClient                 *network.AzureFirewallsClient
+	BastionHostsClient                   *network.BastionHostsClient
+	ConnectionMonitorsClient             *network.ConnectionMonitorsClient
+	DDOSProtectionPlansClient            *network.DdosProtectionPlansClient
+	ExpressRouteAuthsClient              *network.ExpressRouteCircuitAuthorizationsClient
+	ExpressRouteCircuitsClient           *network.ExpressRouteCircuitsClient
+	ExpressRoutePeeringsClient           *network.ExpressRouteCircuitPeeringsClient
+	InterfacesClient                     *network.InterfacesClient
+	LoadBalancersClient                  *network.LoadBalancersClient
+	LocalNetworkGatewaysClient           *network.LocalNetworkGatewaysClient
+	PointToSiteVpnGatewaysClient         *network.P2sVpnGatewaysClient
+	ProfileClient                        *network.ProfilesClient
+	PacketCapturesClient                 *network.PacketCapturesClient
+	PublicIPsClient                      *network.PublicIPAddressesClient
+	PublicIPPrefixesClient               *network.PublicIPPrefixesClient
+	RoutesClient                         *network.RoutesClient
+	RouteTablesClient                    *network.RouteTablesClient
+	SecurityGroupClient                  *network.SecurityGroupsClient
+	SecurityRuleClient                   *network.SecurityRulesClient
+	SubnetsClient                        *network.SubnetsClient
+	VnetGatewayConnectionsClient         *network.VirtualNetworkGatewayConnectionsClient
+	VnetGatewayClient                    *network.VirtualNetworkGatewaysClient
+	VnetClient                           *network.VirtualNetworksClient
+	VnetPeeringsClient                   *network.VirtualNetworkPeeringsClient
+	VirtualWanClient                     *network.VirtualWansClient
+	VirtualHubClient                     *network.VirtualHubsClient
+	VpnGatewaysClient                    *network.VpnGatewaysClient
+	VpnServerConfigurationsClient        *network.VpnServerConfigurationsClient
+	WatcherClient                        *network.WatchersClient
+	WebApplicationFirewallPoliciesClient *network.WebApplicationFirewallPoliciesClient
+	PrivateLinkServiceClient             *network.PrivateLinkServicesClient
 }
 
 func BuildClient(o *common.ClientOptions) *Client {
