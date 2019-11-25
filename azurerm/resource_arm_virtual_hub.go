@@ -1,10 +1,13 @@
 package azurerm
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-07-01/network"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
@@ -14,6 +17,7 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/locks"
 	aznetwork "github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/network"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/tags"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/timeouts"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -98,7 +102,8 @@ func resourceArmVirtualHub() *schema.Resource {
 
 func resourceArmVirtualHubCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).Network.VirtualHubClient
-	ctx := meta.(*ArmClient).StopContext
+	ctx, cancel := timeouts.ForCreateUpdate(meta.(*ArmClient).StopContext, d)
+	defer cancel()
 
 	name := d.Get("name").(string)
 	resourceGroup := d.Get("resource_group_name").(string)
@@ -149,11 +154,33 @@ func resourceArmVirtualHubCreateUpdate(d *schema.ResourceData, meta interface{})
 		}
 	}
 
-	future, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters)
-	if err != nil {
+	// todo: confirm if this is needed
+	// whilst there's a future here, the API is broken
+	if _, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters); err != nil {
 		return fmt.Errorf("Error creating Virtual Hub %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
-	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
+
+	log.Printf("[DEBUG] Waiting for Virtual Hub %q (Resource Group %q) to become available", name, resourceGroup)
+	stateConf := &resource.StateChangeConf{
+		Pending:                   []string{"pending"},
+		Target:                    []string{"available"},
+		Refresh:                   virtualHubWaitForCreatedRefreshFunc(ctx, client, resourceGroup, name),
+		Delay:                     30 * time.Second,
+		PollInterval:              10 * time.Second,
+		ContinuousTargetOccurence: 3,
+	}
+
+	if features.SupportsCustomTimeouts() {
+		if d.IsNewResource() {
+			stateConf.Timeout = d.Timeout(schema.TimeoutCreate)
+		} else {
+			stateConf.Timeout = d.Timeout(schema.TimeoutUpdate)
+		}
+	} else {
+		stateConf.Timeout = 90 * time.Minute
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
 		return fmt.Errorf("Error waiting for creation of Virtual Hub %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
@@ -171,7 +198,8 @@ func resourceArmVirtualHubCreateUpdate(d *schema.ResourceData, meta interface{})
 
 func resourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).Network.VirtualHubClient
-	ctx := meta.(*ArmClient).StopContext
+	ctx, cancel := timeouts.ForRead(meta.(*ArmClient).StopContext, d)
+	defer cancel()
 
 	id, err := aznetwork.ParseVirtualHubID(d.Id())
 	if err != nil {
@@ -226,7 +254,8 @@ func resourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error {
 
 func resourceArmVirtualHubDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).Network.VirtualHubClient
-	ctx := meta.(*ArmClient).StopContext
+	ctx, cancel := timeouts.ForDelete(meta.(*ArmClient).StopContext, d)
+	defer cancel()
 
 	id, err := aznetwork.ParseVirtualHubID(d.Id())
 	if err != nil {
@@ -301,4 +330,33 @@ func flattenArmVirtualHubRoute(input *network.VirtualHubRouteTable) []interface{
 	}
 
 	return results
+}
+
+func virtualHubWaitForCreatedRefreshFunc(ctx context.Context, client *network.VirtualHubsClient, resourceGroup, name string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		log.Printf("[DEBUG] Checking to see if Virtual Hub %q (Resource Group %q) has finished provisioning..", name, resourceGroup)
+
+		resp, err := client.Get(ctx, resourceGroup, name)
+		if err != nil {
+			log.Printf("[DEBUG] Error retrieving Virtual Hub %q (Resource Group %q): %+v", name, resourceGroup, err)
+			return nil, "error", fmt.Errorf("Error retrieving Virtual Hub %q (Resource Group %q): %+v", name, resourceGroup, err)
+		}
+
+		if resp.VirtualHubProperties == nil {
+			log.Printf("[DEBUG] Error retrieving Virtual Hub %q (Resource Group %q): `properties` was nil", name, resourceGroup)
+			return nil, "error", fmt.Errorf("Error retrieving Virtual Hub %q (Resource Group %q): `properties` was nil", name, resourceGroup)
+		}
+
+		log.Printf("[DEBUG] Virtual Hub %q (Resource Group %q) is %q..", name, resourceGroup, string(resp.VirtualHubProperties.ProvisioningState))
+		switch resp.VirtualHubProperties.ProvisioningState {
+		case network.Succeeded:
+			return "available", "available", nil
+
+		case network.Failed:
+			return "error", "error", fmt.Errorf("VPN Gateway %q (Resource Group %q) is in provisioningState `Failed`", name, resourceGroup)
+
+		default:
+			return "pending", "pending", nil
+		}
+	}
 }
