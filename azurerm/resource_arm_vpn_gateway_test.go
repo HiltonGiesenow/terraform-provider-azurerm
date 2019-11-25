@@ -10,6 +10,8 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/tf"
 )
 
+// TODO: RequiresImport
+
 func TestAccAzureRMVPNGateway_basic(t *testing.T) {
 	resourceName := "azurerm_vpn_gateway.test"
 	ri := tf.AccRandTimeInt()

@@ -10,6 +10,8 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
+// TODO: RequiresImport
+
 func TestAccAzureRMVPNServerConfiguration_azureAD(t *testing.T) {
 	resourceName := "azurerm_vpn_server_configuration.test"
 	ri := tf.AccRandTimeInt()

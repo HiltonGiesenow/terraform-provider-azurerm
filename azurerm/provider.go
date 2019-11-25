@@ -387,6 +387,7 @@ func Provider() terraform.ResourceProvider {
 		"azurerm_policy_assignment":                                                      resourceArmPolicyAssignment(),
 		"azurerm_policy_definition":                                                      resourceArmPolicyDefinition(),
 		"azurerm_policy_set_definition":                                                  resourceArmPolicySetDefinition(),
+		"azurerm_point_to_site_vpn_gateway":                                              resourceArmPointToSiteVPNGateway(),
 		"azurerm_postgresql_configuration":                                               resourceArmPostgreSQLConfiguration(),
 		"azurerm_postgresql_database":                                                    resourceArmPostgreSQLDatabase(),
 		"azurerm_postgresql_firewall_rule":                                               resourceArmPostgreSQLFirewallRule(),

@@ -31,3 +31,16 @@ func ParseVirtualHubID(input string) (*VirtualHubResourceID, error) {
 
 	return &virtualHub, nil
 }
+
+func ValidateVirtualHubID(i interface{}, k string) (warnings []string, errors []error) {
+	v, ok := i.(string)
+	if !ok {
+		return nil, []error{fmt.Errorf("expected type of %q to be string", k)}
+	}
+
+	if _, err := ParseVirtualHubID(v); err != nil {
+		return nil, []error{err}
+	}
+
+	return nil, nil
+}

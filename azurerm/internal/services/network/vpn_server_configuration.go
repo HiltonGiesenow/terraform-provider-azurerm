@@ -30,3 +30,16 @@ func ParseVpnServerConfigurationID(input string) (*VpnServerConfigurationResourc
 
 	return &vpnServerConfigurationResourceID, nil
 }
+
+func ValidateVpnServerConfigurationID(i interface{}, k string) (warnings []string, errors []error) {
+	v, ok := i.(string)
+	if !ok {
+		return nil, []error{fmt.Errorf("expected type of %q to be string", k)}
+	}
+
+	if _, err := ParseVpnServerConfigurationID(v); err != nil {
+		return nil, []error{err}
+	}
+
+	return nil, nil
+}
