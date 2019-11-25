@@ -1,11 +1,13 @@
 package azurerm
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-07-01/network"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
@@ -129,6 +131,30 @@ func resourceArmVPNGatewayCreateUpdate(d *schema.ResourceData, meta interface{})
 
 	if _, err := client.CreateOrUpdate(ctx, resourceGroup, name, parameters); err != nil {
 		return fmt.Errorf("Error creating VPN Gateway %q (Resource Group %q): %+v", name, resourceGroup, err)
+	}
+
+	log.Printf("[DEBUG] Waiting for Virtual Hub %q (Resource Group %q) to become available", name, resourceGroup)
+	stateConf := &resource.StateChangeConf{
+		Pending:                   []string{"pending"},
+		Target:                    []string{"available"},
+		Refresh:                   vpnGatewayWaitForCreatedRefreshFunc(ctx, client, resourceGroup, name),
+		Delay:                     30 * time.Second,
+		PollInterval:              10 * time.Second,
+		ContinuousTargetOccurence: 3,
+	}
+
+	if features.SupportsCustomTimeouts() {
+		if d.IsNewResource() {
+			stateConf.Timeout = d.Timeout(schema.TimeoutCreate)
+		} else {
+			stateConf.Timeout = d.Timeout(schema.TimeoutUpdate)
+		}
+	} else {
+		stateConf.Timeout = 90 * time.Minute
+	}
+
+	if _, err := stateConf.WaitForState(); err != nil {
+		return fmt.Errorf("Error waiting for creation of Virtual Hub %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
 	resp, err := client.Get(ctx, resourceGroup, name)
@@ -268,5 +294,34 @@ func flattenVPNGatewayBGPSettings(input *network.BgpSettings) []interface{} {
 			"bgp_peering_address": bgpPeeringAddress,
 			"peer_weight":         peerWeight,
 		},
+	}
+}
+
+func vpnGatewayWaitForCreatedRefreshFunc(ctx context.Context, client *network.VpnGatewaysClient, resourceGroup, name string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		log.Printf("[DEBUG] Checking to see if VPN Gateway %q (Resource Group %q) has finished provisioning..", name, resourceGroup)
+
+		resp, err := client.Get(ctx, resourceGroup, name)
+		if err != nil {
+			log.Printf("[DEBUG] Error retrieving VPN Gateway %q (Resource Group %q): %+v", name, resourceGroup, err)
+			return nil, "error", fmt.Errorf("Error retrieving VPN Gateway %q (Resource Group %q): %+v", name, resourceGroup, err)
+		}
+
+		if resp.VpnGatewayProperties == nil {
+			log.Printf("[DEBUG] Error retrieving VPN Gateway %q (Resource Group %q): `properties` was nil", name, resourceGroup)
+			return nil, "error", fmt.Errorf("Error retrieving VPN Gateway %q (Resource Group %q): `properties` was nil", name, resourceGroup)
+		}
+
+		log.Printf("[DEBUG] VPN Gateway %q (Resource Group %q) is %q..", name, resourceGroup, string(resp.VpnGatewayProperties.ProvisioningState))
+		switch resp.VpnGatewayProperties.ProvisioningState {
+		case network.Succeeded:
+			return "available", "available", nil
+
+		case network.Failed:
+			return "error", "error", fmt.Errorf("VPN Gateway %q (Resource Group %q) is in provisioningState `Failed`", name, resourceGroup)
+
+		default:
+			return "pending", "pending", nil
+		}
 	}
 }
