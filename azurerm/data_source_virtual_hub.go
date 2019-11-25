@@ -35,41 +35,6 @@ func dataSourceArmVirtualHub() *schema.Resource {
 				Computed: true,
 			},
 
-			"s2s_vpn_gateway_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-
-			"p2s_vpn_gateway_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-
-			"express_route_gateway_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-
-			"route": {
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"address_prefixes": {
-							Type:     schema.TypeList,
-							Computed: true,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
-						"next_hop_ip_address": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-					},
-				},
-			},
-
 			"tags": tags.SchemaDataSource(),
 		},
 	}
@@ -99,29 +64,6 @@ func dataSourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error
 	}
 	if props := resp.VirtualHubProperties; props != nil {
 		d.Set("address_prefix", props.AddressPrefix)
-
-		var expressRouteGatewayId *string
-		if props.ExpressRouteGateway != nil {
-			expressRouteGatewayId = props.ExpressRouteGateway.ID
-		}
-		d.Set("express_route_gateway_id", expressRouteGatewayId)
-
-		var p2sVpnGatewayId *string
-		if props.P2SVpnGateway != nil {
-			p2sVpnGatewayId = props.P2SVpnGateway.ID
-		}
-		d.Set("p2s_vpn_gateway_id", p2sVpnGatewayId)
-
-		if err := d.Set("route", flattenArmVirtualHubRoute(props.RouteTable)); err != nil {
-			return fmt.Errorf("Error setting `route`: %+v", err)
-		}
-
-		// this makes sense in the Data Source but not the Resource due to the way this is used in practice
-		var vpnGatewayId *string
-		if props.VpnGateway != nil {
-			vpnGatewayId = props.VpnGateway.ID
-		}
-		d.Set("s2s_vpn_gateway_id", vpnGatewayId)
 
 		var virtualWanId *string
 		if props.VirtualWan != nil {

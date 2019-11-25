@@ -16,6 +16,8 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
+// TODO: tests
+
 func resourceArmVirtualHubConnection() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceArmVirtualHubConnectionCreate,

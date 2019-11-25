@@ -21,6 +21,12 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
+/*
+Remaining:
+	- Tests for the Parsers/Validation
+	- Tests for Virtual Hub Connections
+*/
+
 var virtualHubResourceName = "azurerm_virtual_hub"
 
 func resourceArmVirtualHub() *schema.Resource {
@@ -56,20 +62,6 @@ func resourceArmVirtualHub() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: azure.ValidateResourceID,
-			},
-
-			// TODO: remove this
-			"p2s_vpn_gateway_id": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: azure.ValidateResourceID,
-			},
-
-			// TODO: should this be removed?
-			"express_route_gateway_id": {
-				Type:         schema.TypeString,
-				Optional:     true,
 				ValidateFunc: azure.ValidateResourceID,
 			},
 
@@ -139,19 +131,6 @@ func resourceArmVirtualHubCreateUpdate(d *schema.ResourceData, meta interface{})
 			RouteTable: expandArmVirtualHubRoute(route),
 		},
 		Tags: tags.Expand(t),
-	}
-
-	if v, ok := d.GetOk("p2s_vpn_gateway_id"); ok {
-		p2sVpnGatewayId := v.(string)
-		parameters.VirtualHubProperties.P2SVpnGateway = &network.SubResource{
-			ID: &p2sVpnGatewayId,
-		}
-	}
-	if v, ok := d.GetOk("express_route_gateway_id"); ok {
-		expressRouteGatewayId := v.(string)
-		parameters.VirtualHubProperties.ExpressRouteGateway = &network.SubResource{
-			ID: &expressRouteGatewayId,
-		}
 	}
 
 	// todo: confirm if this is needed
@@ -225,18 +204,6 @@ func resourceArmVirtualHubRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	if props := resp.VirtualHubProperties; props != nil {
 		d.Set("address_prefix", props.AddressPrefix)
-
-		var expressRouteGatewayId *string
-		if props.ExpressRouteGateway != nil {
-			expressRouteGatewayId = props.ExpressRouteGateway.ID
-		}
-		d.Set("express_route_gateway_id", expressRouteGatewayId)
-
-		var p2sVpnGatewayId *string
-		if props.P2SVpnGateway != nil {
-			p2sVpnGatewayId = props.P2SVpnGateway.ID
-		}
-		d.Set("p2s_vpn_gateway_id", p2sVpnGatewayId)
 
 		if err := d.Set("route", flattenArmVirtualHubRoute(props.RouteTable)); err != nil {
 			return fmt.Errorf("Error setting `route`: %+v", err)

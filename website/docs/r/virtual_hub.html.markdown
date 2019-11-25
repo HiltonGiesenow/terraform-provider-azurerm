@@ -29,8 +29,8 @@ resource "azurerm_virtual_hub" "example" {
   name                = "example-virtualhub"
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
-  address_prefix      = "10.0.1.0/24"
   virtual_wan_id      = azurerm_virtual_wan.example.id
+  address_prefix      = "10.0.1.0/24"
 }
 ```
 
@@ -49,12 +49,6 @@ The following arguments are supported:
 * `virtual_wan_id` - (Required) The ID of a Virtual WAN within which the Virtual Hub should be created.
 
 ---
-
-* `express_route_gateway_id` - (Optional) The ID of an Express Route Gateway which should be used for Express Route connections.
-
-~> **NOTE:** This functionality is in Preview and must be opted into via `az feature register --namespace Microsoft.Network --name AllowCortexExpressRouteGateway` and then `az provider register -n Microsoft.Network`.
-
-* `p2s_vpn_gateway_id` - (Optional) The ID of a Point-to-Site VPN Gateway which should be used for Point-to-Site connections.
 
 * `route` - (Optional) One or more `route` blocks as defined below.
 
@@ -78,8 +72,8 @@ The following attributes are exported:
 
 ## Import
 
-Virtual Hub can be imported using the `resource id`, e.g.
+Virtual Hub's can be imported using the `resource id`, e.g.
 
 ```shell
-$ terraform import azurerm_virtual_hub.example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Network/virtualHubs/vhub1
+$ terraform import azurerm_virtual_hub.example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Network/virtualHubs/hub1
 ```
