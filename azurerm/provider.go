@@ -384,6 +384,7 @@ func Provider() terraform.ResourceProvider {
 		"azurerm_notification_hub_namespace":                                             resourceArmNotificationHubNamespace(),
 		"azurerm_notification_hub":                                                       resourceArmNotificationHub(),
 		"azurerm_packet_capture":                                                         resourceArmPacketCapture(),
+		"azurerm_point_to_site_vpn_server_configuration":                                 resourceArmPointToSiteVPNServerConfiguration(),
 		"azurerm_policy_assignment":                                                      resourceArmPolicyAssignment(),
 		"azurerm_policy_definition":                                                      resourceArmPolicyDefinition(),
 		"azurerm_policy_set_definition":                                                  resourceArmPolicySetDefinition(),
